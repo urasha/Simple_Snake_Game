@@ -3,6 +3,7 @@ import random
 import sys
 
 pygame.init()
+pygame.font.init()
 
 # Constants
 SIZE = (600, 500)
