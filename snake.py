@@ -1,6 +1,8 @@
 import pygame
 import random
 import sys
+from numpy.random import choice
+import shelve
 
 pygame.init()
 pygame.font.init()
@@ -22,6 +24,7 @@ screen = pygame.display.set_mode(SIZE)
 pygame.display.set_caption('Mac game')
 
 font = pygame.font.SysFont('Comic Sans', 24)
+font_1 = pygame.font.SysFont('Arial', 64)
 
 # snake metrics
 snake_pos = {
@@ -37,18 +40,44 @@ snake_speed = 10
 snake_tails = [[snake_pos['x'] - 10, snake_pos['y']],
                [snake_pos['x'] - 20, snake_pos['y']]]
 
-# apple metrics
-apple = {
+# food metrics
+food = {
     'x': 0,
     'y': 0,
+    'type': 'apple',
+    'color': RED
 }
 
-possible_x = range(10, SIZE[0] - 19, 10)
-possible_y = range(10, SIZE[1] - 19, 10)
+food_types = ['apple', 'blueberry']
+probability = [0.75, 0.25]
+
+possible_x = range(30, SIZE[0] - 19, 10)
+possible_y = range(30, SIZE[1] - 19, 10)
 
 is_eaten = False
 
 score = 0
+
+
+def game_over():
+    screen.fill(BLACK)
+    end_message = font_1.render('GAME OVER', 1, WHITE)
+    screen.blit(end_message, (110, 190))
+    pygame.display.update()
+
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                terminate()
+
+
+def check_top_score():
+    file = shelve.open('score.txt')
+    if file:
+        if int(file['score']) < score:
+            file['score'] = score
+    else:
+        file['score'] = score
 
 
 def terminate():
@@ -78,16 +107,22 @@ while True:
 
     # is eaten?
     if not is_eaten:
-        apple['x'] = random.choice(possible_x)
-        apple['y'] = random.choice(possible_y)
+        food['x'] = random.choice(possible_x)
+        food['y'] = random.choice(possible_y)
+        food['type'] = choice(food_types, p=probability)
         is_eaten = True
 
     # check apple and snake position
-    if snake_pos['x'] in range(apple['x'], apple['x'] + 11) \
-            and snake_pos['y'] in range(apple['y'], apple['y'] + 11):
+    if snake_pos['x'] in range(food['x'], food['x'] + 11) \
+            and snake_pos['y'] in range(food['y'], food['y'] + 11):
 
-        snake_tails.append([apple['x'], apple['y']])
-        score += 1
+        snake_tails.append([food['x'], food['y']])
+
+        if food['type'] == 'apple':
+            score += 1
+        elif food['type'] == 'blueberry':
+            score += 2
+
         is_eaten = False
 
     # change coordinates
@@ -120,7 +155,7 @@ while True:
     # check tail's break
     for i in snake_tails:
         if snake_pos['x'] == i[0] and snake_pos['y'] == i[1]:
-            terminate()
+            game_over()
 
     # draw snake
     pygame.draw.rect(screen, GREEN, (snake_pos['x'], snake_pos['y'], 10, 10))
@@ -129,11 +164,25 @@ while True:
         pygame.draw.rect(screen, GREEN, (snake_tails[i][0], snake_tails[i][1], 10, 10))
 
     # draw apple
-    pygame.draw.rect(screen, RED, (apple['x'], apple['y'], 10, 10))
+    if food['type'] == 'apple':
+        food['color'] = RED
+    elif food['type'] == 'blueberry':
+        food['color'] = BLUE
+
+    pygame.draw.rect(screen, food['color'], (food['x'], food['y'], 10, 10))
 
     # show score
-    render = font.render(f'Score: {score}', 1, WHITE)
-    screen.blit(render, (10, 10))
+    if shelve.open('score.txt'):
+        top_score_text = font.render(f'Top score: {shelve.open("score.txt")["score"]}', 1, WHITE)
+    else:
+        top_score_text = font.render(f'Top score: {score}', 1, WHITE)
+
+    score_text = font.render(f'Score: {score}', 1, WHITE)
+
+    screen.blit(top_score_text, (10, 10))
+    screen.blit(score_text, (10, 30))
+
+    check_top_score()
 
     pygame.display.update()
     clock.tick(FPS)
